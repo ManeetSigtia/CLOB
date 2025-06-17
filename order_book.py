@@ -35,6 +35,7 @@ class Node:
 
 class DoublyLinkedList:
     def __init__(self):
+        self.order_to_node_map = dict()
         self.head = Node()
         self.tail = Node()
 
@@ -52,6 +53,19 @@ class DoublyLinkedList:
         # update neighbouring pointers
         self.tail.prev.next = new_node
         self.tail.prev = new_node
+
+        self.order_to_node_map[order.order_id] = new_node
+
+    def remove(self, order: Order):
+        node = self.order_to_node_map[order.order_id]
+
+        previous_node = node.prev
+        next_node = node.next
+
+        previous_node.next = next_node
+        next_node.prev = previous_node
+
+        del self.order_to_node_map[order.order_id]
 
     def peek(self):
         return self.head.next.val
@@ -95,6 +109,24 @@ class BidOrders:
             self.price_map[order_price] = doubly_linked_list
             heapq.heappush(self.price_heap, -order_price)
 
+    def pop(self):
+        """
+        We essentially want to remove the first order from the first doubly linked list of the min heap
+        """
+        if not self.price_heap:
+            return
+
+        best_price = -self.price_heap[0]
+        best_orders_doubly_linked_list = self.price_map[best_price]
+        best_order = best_orders_doubly_linked_list.peek()
+        best_orders_doubly_linked_list.remove(best_order)
+
+        if best_orders_doubly_linked_list.is_empty():
+            # remove entry from dict
+            del self.price_map[best_price]
+            # pop from min_heap
+            heapq.heappop(self.price_heap)
+
     def get_best_order(self) -> Order:
         if not self.price_heap:
             return None
@@ -122,12 +154,30 @@ class AskOrders:
             self.price_map[order_price] = doubly_linked_list
             heapq.heappush(self.price_heap, order_price)
 
+    def pop(self):
+        """
+        We essentially want to remove the first order from the first doubly linked list of the min heap
+        """
+        if not self.price_heap:
+            return
+
+        best_price = self.price_heap[0]
+        best_orders_doubly_linked_list = self.price_map[best_price]
+        best_order = best_orders_doubly_linked_list.peek()
+        best_orders_doubly_linked_list.remove(best_order)
+
+        if best_orders_doubly_linked_list.is_empty():
+            # remove entry from dict
+            del self.price_map[best_price]
+            # pop from min_heap
+            heapq.heappop(self.price_heap)
+
     def get_best_order(self) -> Order:
         if not self.price_heap:
             return None
         best_price = self.price_heap[0]
-        doubly_linked_list = self.price_map[best_price]
-        return doubly_linked_list.peek()
+        best_orders_doubly_linked_list = self.price_map[best_price]
+        return best_orders_doubly_linked_list.peek()
 
 
 class OrderBook:
@@ -159,22 +209,38 @@ class OrderBook:
                     self.best_bid_price = self.bid_orders.get_best_order().price
                     return
 
-                while order.quantity > 0 and self.best_ask_price <= order.price:
+                while (
+                    order.quantity > 0
+                    and self.best_ask_price <= order.price
+                    and best_ask_order
+                ):
                     if order.quantity == best_ask_order.quantity:
                         self.ask_orders.pop()
                         order.quantity = 0
+                        best_ask_order.quantity = 0
+
+                        best_ask_order = self.ask_orders.get_best_order()
+                        if best_ask_order:
+                            self.best_ask_price = best_ask_order.price
+                        else:
+                            self.best_ask_price = 0
                     elif order.quantity < best_ask_order.quantity:
                         best_ask_order.quantity -= order.quantity
                         order.quantity = 0
                     else:
-                        order_quantity -= best_ask_order.quantity
+                        order.quantity -= best_ask_order.quantity
+                        best_ask_order.quantity = 0
                         self.ask_orders.pop()
-                        if self.ask_orders:
-                            best_ask_order = self.ask_orders.get_best_order()
+
+                        best_ask_order = self.ask_orders.get_best_order()
+                        if best_ask_order:
                             self.best_ask_price = best_ask_order.price
                         else:
-                            self.bid_orders.add(order)
-                            self.best_bid_price = self.bid_orders.get_best_order().price
+                            self.best_ask_price = 0
+
+                if order.quantity > 0:
+                    self.bid_orders.add(order)
+                    self.best_bid_price = self.bid_orders.get_best_order().price
 
             else:  # order.bid_ask_enum == BidAskEnum.ASK
                 best_bid_order = self.bid_orders.get_best_order()
@@ -187,18 +253,38 @@ class OrderBook:
                     if order.quantity == best_bid_order.quantity:
                         self.bid_orders.pop()
                         order.quantity = 0
+                        best_bid_order.quantity = 0
+
+                        best_bid_order = self.bid_orders.get_best_order()
+                        if best_bid_order:
+                            self.best_bid_price = best_bid_order.price
+                        else:
+                            self.best_bid_price = 0
                     elif order.quantity < best_bid_order.quantity:
                         best_bid_order.quantity -= order.quantity
                         order.quantity = 0
                     else:
-                        order_quantity -= best_bid_order.quantity
+                        order.quantity -= best_bid_order.quantity
+                        best_bid_order.quantity = 0
                         self.bid_orders.pop()
-                        if self.bid_orders:
-                            best_bid_order = self.bid_orders.get_best_order()
+
+                        best_bid_order = self.bid_orders.get_best_order()
+                        if best_bid_order:
                             self.best_bid_price = best_bid_order.price
                         else:
-                            self.ask_orders.add(order)
-                            self.best_ask_price = self.ask_orders.get_best_order().price
+                            self.best_bid_price = 0
+
+                if order.quantity > 0:
+                    self.ask_orders.add(order)
+                    self.best_ask_price = self.ask_orders.get_best_order().price
 
     def cancel_order(self, order_id: int) -> None:
+        """
+        don't forget to consider the case in which a min heap contains prices 1,2,3,4, and all orders for price 3 have been cancelled.
+        that means the doubly linked list for price 3 is empty. so when price 3 becomes the root node, this will have an empty doubly linked list
+        so this needs to be popped to reflect the actual best price
+
+        just thinking about it, and I think this functionality should be present in the place_order method before any matching is done.
+        TBC basically
+        """
         pass

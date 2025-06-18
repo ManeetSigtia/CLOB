@@ -29,8 +29,8 @@ jobs:
 
       - name: Run tests with coverage and generate JUnit XML
         run: |
-          coverage run -m xmlrunner discover -s . -p "test_*.py" -o test-reports
-          coverage xml  # generate coverage XML for Codecov
+          coverage run run_tests.py
+          coverage xml
           coverage report
 
       - name: Upload coverage to Codecov

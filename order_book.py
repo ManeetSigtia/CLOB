@@ -164,7 +164,7 @@ class OrderBook:
 
                 while (
                     order.quantity > 0
-                    and self.get_best_ask_price() is not None
+                    and self.get_best_ask_price() != 0
                     and order.price >= self.get_best_ask_price()
                 ):
                     best_ask_order = self.get_best_ask_order()  # Moved inside loop
@@ -194,7 +194,7 @@ class OrderBook:
 
                 while (
                     order.quantity > 0
-                    and self.get_best_bid_price() is not None
+                    and self.get_best_bid_price() != 0
                     and order.price <= self.get_best_bid_price()
                 ):
                     best_bid_order = self.get_best_bid_order()  # Moved inside loop

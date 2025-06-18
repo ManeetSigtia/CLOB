@@ -34,6 +34,8 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(self.order_book.get_best_bid_price(), 99)
         self.assertEqual(self.order_book.get_best_ask_price(), 0)
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 10)
+
     def test_place_ask_order(self):
         """Tests placing a single ask order on an empty book."""
         # Action: Place one ask order.
@@ -43,6 +45,8 @@ class TestOrderBook(unittest.TestCase):
         # Expected Outcome: The ask should be the best ask, and the bid side should be empty.
         self.assertEqual(self.order_book.get_best_ask_price(), 99)
         self.assertEqual(self.order_book.get_best_bid_price(), 0)
+
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 10)
 
     def test_place_multiple_bid_orders_at_same_price(self):
         """Tests FIFO ordering for multiple bid orders at the same price."""
@@ -54,6 +58,7 @@ class TestOrderBook(unittest.TestCase):
 
         # Expected Outcome: The first order placed (quantity 10) should be the best order.
         self.assertEqual(self.order_book.bid_orders.get_best_order().quantity, 10)
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 60)
 
     def test_place_multiple_bid_orders_at_different_price(self):
         """Tests price priority for multiple bid orders at different prices."""
@@ -66,6 +71,10 @@ class TestOrderBook(unittest.TestCase):
 
         # Expected Outcome: The highest bid price (100) should be the best bid.
         self.assertEqual(self.order_book.get_best_bid_price(), 100)
+        for price in prices:
+            self.assertEqual(
+                self.order_book.bid_orders.get_quantity_for_price(price), 10
+            )
 
     def test_place_multiple_ask_orders_at_same_price(self):
         """Tests FIFO ordering for multiple ask orders at the same price."""
@@ -77,6 +86,7 @@ class TestOrderBook(unittest.TestCase):
 
         # Expected Outcome: The first order placed (quantity 10) should be the best order.
         self.assertEqual(self.order_book.ask_orders.get_best_order().quantity, 10)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 60)
 
     def test_place_multiple_ask_orders_at_different_price(self):
         """Tests price priority for multiple ask orders at different prices."""
@@ -89,6 +99,10 @@ class TestOrderBook(unittest.TestCase):
 
         # Expected Outcome: The lowest ask price (98) should be the best ask.
         self.assertEqual(self.order_book.get_best_ask_price(), 98)
+        for price in prices:
+            self.assertEqual(
+                self.order_book.ask_orders.get_quantity_for_price(price), 10
+            )
 
     def test_no_bid_order_execution_while_ask_order_exists(self):
         """Tests that no execution occurs when the bid price is below the ask price."""
@@ -106,6 +120,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(self.order_book.bid_orders.get_best_order().quantity, 20)
         self.assertEqual(self.order_book.ask_orders.get_best_order().quantity, 10)
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 20)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(101), 10)
+
     def test_no_ask_order_execution_while_bid_order_exists(self):
         """Tests that no execution occurs when the ask price is above the bid price."""
         # Setup: Place a bid order.
@@ -121,6 +138,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(self.order_book.get_best_ask_price(), 101)
         self.assertEqual(self.order_book.bid_orders.get_best_order().quantity, 20)
         self.assertEqual(self.order_book.ask_orders.get_best_order().quantity, 10)
+
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 20)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(101), 10)
 
     def test_bid_order_execution_complete_clearance_while_ask_order_exists(self):
         """Tests a full match where a new bid clears a resting ask of the same size."""
@@ -138,6 +158,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertIsNone(self.order_book.get_best_bid_order())
         self.assertIsNone(self.order_book.get_best_ask_order())
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 0)
+
     def test_ask_order_execution_complete_clearance_while_bid_order_exists(self):
         """Tests a full match where a new ask clears a resting bid of the same size."""
         # Setup: Place a resting bid order.
@@ -153,6 +176,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(ask.quantity, 0)
         self.assertIsNone(self.order_book.get_best_bid_order())
         self.assertIsNone(self.order_book.get_best_ask_order())
+
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 0)
 
     def test_bigger_quantity_bid_order_partial_execution_while_ask_order_exists(self):
         """Tests a partial match where a larger new bid clears a smaller resting ask."""
@@ -170,6 +196,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(self.order_book.get_best_bid_order(), bid)
         self.assertIsNone(self.order_book.get_best_ask_order())
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 10)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 0)
+
     def test_smaller_quantity_bid_order_partial_execution_while_ask_order_exists(self):
         """Tests a partial match where a new bid is fully filled by a larger resting ask."""
         # Setup: Place a large resting ask order.
@@ -185,6 +214,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(ask.quantity, 15)
         self.assertIsNone(self.order_book.get_best_bid_order())
         self.assertEqual(self.order_book.get_best_ask_order(), ask)
+
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 15)
 
     def test_bigger_quantity_ask_order_partial_execution_while_bid_order_exists(self):
         """Tests a partial match where a larger new ask clears a smaller resting bid."""
@@ -202,6 +234,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertIsNone(self.order_book.get_best_bid_order())
         self.assertEqual(self.order_book.get_best_ask_order(), ask)
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 20)
+
     def test_smaller_quantity_ask_order_partial_execution_while_bid_order_exists(self):
         """Tests a partial match where a new ask is fully filled by a larger resting bid."""
         # Setup: Place a large resting bid order.
@@ -217,6 +252,9 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(ask.quantity, 0)
         self.assertEqual(self.order_book.get_best_bid_order(), bid)
         self.assertIsNone(self.order_book.get_best_ask_order())
+
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 20)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(99), 0)
 
     def test_partial_execution_across_multiple_ask_orders_with_bid(self):
         """Tests a bid executing against multiple resting asks at different prices."""
@@ -239,6 +277,10 @@ class TestOrderBook(unittest.TestCase):
             remaining_ask.quantity, 5
         )  # 10 (original) - 5 (remaining from bid)
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(102), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(101), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(102), 5)
+
     def test_partial_execution_across_multiple_bid_orders_with_ask(self):
         """Tests an ask executing against multiple resting bids at different prices."""
         # Setup: Place two bid orders at different price levels. Best price is 102.
@@ -260,6 +302,10 @@ class TestOrderBook(unittest.TestCase):
             remaining_bid.quantity, 5
         )  # 20 (original) - 15 (remaining from ask)
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(102), 0)
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(101), 5)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(101), 0)
+
     def test_bid_clears_one_level_and_partially_fills_next(self):
         """
         Tests that a large bid clears the best ask level completely, then
@@ -278,16 +324,10 @@ class TestOrderBook(unittest.TestCase):
         self.order_book.place_order(bid)
 
         # Expected Outcome: The first two asks are cleared, the third is partially filled.
-        self.assertEqual(bid.quantity, 0, "Incoming bid should be fully filled")
-        self.assertEqual(
-            ask1.quantity, 0, "First ask at best price should be fully filled"
-        )
-        self.assertEqual(
-            ask2.quantity, 0, "Second ask at best price should be fully filled"
-        )
-        self.assertEqual(
-            ask3.quantity, 5, "Ask at second-best price should be partially filled"
-        )
+        self.assertEqual(bid.quantity, 0)
+        self.assertEqual(ask1.quantity, 0)
+        self.assertEqual(ask2.quantity, 0)
+        self.assertEqual(ask3.quantity, 5)
 
         # The book should have no bids and only the remainder of ask3.
         self.assertIsNone(self.order_book.get_best_bid_order())
@@ -295,6 +335,10 @@ class TestOrderBook(unittest.TestCase):
         remaining_ask = self.order_book.get_best_ask_order()
         self.assertEqual(remaining_ask.order_id, ask3.order_id)
         self.assertEqual(remaining_ask.quantity, 5)
+
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(102), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(101), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(102), 5)
 
     def test_ask_clears_one_level_and_partially_fills_next(self):
         """
@@ -326,6 +370,10 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(remaining_bid.order_id, bid3.order_id)
         self.assertEqual(remaining_bid.quantity, 5)
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(102), 0)
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(101), 5)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(102), 0)
+
     def test_large_bid_clears_all_asks_and_becomes_new_best_bid(self):
         """
         Tests that a massive bid clears the entire ask side of the book
@@ -356,6 +404,11 @@ class TestOrderBook(unittest.TestCase):
         self.assertEqual(remaining_bid.quantity, 40)
         self.assertEqual(remaining_bid.order_id, bid.order_id)
 
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(103), 40)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(101), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(102), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(103), 0)
+
     def test_large_ask_clears_all_bids_and_becomes_new_best_ask(self):
         """
         Symmetrical test: A massive ask clears the entire bid side
@@ -385,6 +438,11 @@ class TestOrderBook(unittest.TestCase):
         remaining_ask = self.order_book.get_best_ask_order()
         self.assertEqual(remaining_ask.quantity, 40)
         self.assertEqual(remaining_ask.order_id, ask.order_id)
+
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(99), 0)
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(98), 0)
+        self.assertEqual(self.order_book.bid_orders.get_quantity_for_price(97), 0)
+        self.assertEqual(self.order_book.ask_orders.get_quantity_for_price(97), 40)
 
 
 if __name__ == "__main__":

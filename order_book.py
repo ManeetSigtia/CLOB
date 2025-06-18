@@ -76,20 +76,23 @@ class DoublyLinkedList:
 
 class PriceLevelOrdersBase:
     def __init__(self):
-        self.price_map = dict()
+        self.price_to_quantity_map = dict()
+        self.price_to_list_map = dict()
         self.price_heap = []
 
     def add(self, order):
         price = order.price
         heap_price = self._heap_key(price)
 
-        if price in self.price_map:
-            doubly_linked_list = self.price_map[price]
+        if price in self.price_to_list_map:
+            self.price_to_quantity_map[price] += order.quantity
+            doubly_linked_list = self.price_to_list_map[price]
             doubly_linked_list.push(order)
         else:
+            self.price_to_quantity_map[price] = order.quantity
             doubly_linked_list = DoublyLinkedList()
             doubly_linked_list.push(order)
-            self.price_map[price] = doubly_linked_list
+            self.price_to_list_map[price] = doubly_linked_list
             heapq.heappush(self.price_heap, heap_price)
 
     def pop(self):
@@ -97,12 +100,15 @@ class PriceLevelOrdersBase:
             return None
 
         best_price = self._real_price(self.price_heap[0])
-        doubly_linked_list = self.price_map[best_price]
+        doubly_linked_list = self.price_to_list_map[best_price]
         order = doubly_linked_list.peek()
+
+        self.price_to_quantity_map[best_price] -= order.quantity
         doubly_linked_list.remove(order)
 
         if doubly_linked_list.is_empty():
-            del self.price_map[best_price]
+            del self.price_to_quantity_map[best_price]
+            del self.price_to_list_map[best_price]
             heapq.heappop(self.price_heap)
 
         return order
@@ -111,13 +117,16 @@ class PriceLevelOrdersBase:
         if not self.price_heap:
             return None
         best_price = self._real_price(self.price_heap[0])
-        return self.price_map[best_price].peek()
+        return self.price_to_list_map[best_price].peek()
+
+    def get_quantity_for_price(self, price):
+        return self.price_to_quantity_map.get(price, 0)
 
     def _heap_key(self, price):
-        raise NotImplementedError
+        pass
 
     def _real_price(self, heap_key):
-        raise NotImplementedError
+        pass
 
 
 class BidOrders(PriceLevelOrdersBase):
@@ -155,6 +164,24 @@ class OrderBook:
         order = self.get_best_ask_order()
         return order.price if order else 0
 
+    def get_quantity_at_price(self, price, order_type):
+        """
+        depending on the order_type, get the correct heap
+        once we have the heap, we need to check if the price exists in the heap
+        if the price does not exist, we return 0
+        if we have the price, we need to look in the book's quantity map for that price and return the value
+
+        this means when an order is placed, this map needs to be updated too.
+        so, if an order is added to the book, we need to see if the price exists in that book
+        if the price does not exist, the we set the key value pair straightaway
+        if the price does exist, we retrieve the quantity entry from the map and add to it
+
+        however, before anything is added, if a match is made:
+        the while loop really helps here. we can just focus on 1 iteration. if any sort of matching is done, we update the respective books.
+        it also helps that I am already updating the order itself, so if the order quantity falls to 0 because its been matched, we can check for this before creating an entry in the price to quantity map
+        after each subtraction at the bid/ask heap level, if any of the quantities fall to 0, we need to delete that key value pair from the map
+        """
+
     def place_order(self, order: Order) -> None:
         if order.order_type_enum == OrderTypeEnum.LIMIT:
             if order.bid_ask_enum == BidAskEnum.BID:
@@ -177,12 +204,17 @@ class OrderBook:
                         order.quantity = 0
                         best_ask_order.quantity = 0
                     elif order.quantity < best_ask_order.quantity:
+                        # I dont like the fact that I am accessing the price to quantity map here, need a cleverer way to update this map
+                        # I probably don't like it because its not happening in the other if elif blocks, its being handled in the pop
+                        self.ask_orders.price_to_quantity_map[
+                            best_ask_order.price
+                        ] -= order.quantity
                         best_ask_order.quantity -= order.quantity
                         order.quantity = 0
                     else:
+                        self.ask_orders.pop()
                         order.quantity -= best_ask_order.quantity
                         best_ask_order.quantity = 0
-                        self.ask_orders.pop()
 
                 if order.quantity > 0:
                     self.bid_orders.add(order)
@@ -207,12 +239,15 @@ class OrderBook:
                         order.quantity = 0
                         best_bid_order.quantity = 0
                     elif order.quantity < best_bid_order.quantity:
+                        self.bid_orders.price_to_quantity_map[
+                            best_bid_order.price
+                        ] -= order.quantity
                         best_bid_order.quantity -= order.quantity
                         order.quantity = 0
                     else:
+                        self.bid_orders.pop()
                         order.quantity -= best_bid_order.quantity
                         best_bid_order.quantity = 0
-                        self.bid_orders.pop()
 
                     best_bid_order = self.get_best_bid_order()
 

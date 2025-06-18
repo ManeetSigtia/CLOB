@@ -1,6 +1,5 @@
 import unittest
 from datetime import datetime
-
 from order_book import Order, OrderBook, OrderTypeEnum, BidAskEnum
 
 
@@ -9,433 +8,166 @@ class TestOrderBook(unittest.TestCase):
     def setUp(self):
         self.order_book = OrderBook()
 
-    def test_place_bid_order(self):
-        bid_order = Order(
-            order_id=1,
+    def create_order(
+        self, order_id, type_enum, side_enum, price, quantity, client="ClientA"
+    ):
+        return Order(
+            order_id=order_id,
             timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
+            order_type_enum=type_enum,
+            bid_ask_enum=side_enum,
+            price=price,
+            quantity=quantity,
+            client=client,
         )
-        self.order_book.place_order(bid_order)
 
-        self.assertEqual(self.order_book.best_bid_price, 99)
-        self.assertEqual(self.order_book.best_ask_price, 0)
+    def create_order(
+        self, order_id, type_enum, side_enum, quantity, price=None, client="ClientA"
+    ):
+        return Order(
+            order_id=order_id,
+            timestamp=datetime.now(),
+            order_type_enum=type_enum,
+            bid_ask_enum=side_enum,
+            price=price,
+            quantity=quantity,
+            client=client,
+        )
+
+    def test_place_bid_order(self):
+        bid = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 99)
+        self.order_book.place_order(bid)
+        self.assertEqual(self.order_book.get_best_bid_price(), 99)
+        self.assertEqual(self.order_book.get_best_ask_price(), 0)
 
     def test_place_ask_order(self):
-        ask_order = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=10,
-            client="ClientB",
-        )
-        self.order_book.place_order(ask_order)
-
-        self.assertEqual(self.order_book.best_ask_price, 99)
-        self.assertEqual(self.order_book.best_bid_price, 0)
+        ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 99)
+        self.order_book.place_order(ask)
+        self.assertEqual(self.order_book.get_best_ask_price(), 99)
+        self.assertEqual(self.order_book.get_best_bid_price(), 0)
 
     def test_place_multiple_bid_orders_at_same_price(self):
-        bid_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-        bid_order_2 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=30,
-            client="ClientA",
-        )
-        bid_order_3 = Order(
-            order_id=3,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=20,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(bid_order_1)
-        self.order_book.place_order(bid_order_2)
-        self.order_book.place_order(bid_order_3)
-
+        for i, qty in enumerate([10, 30, 20], start=1):
+            self.order_book.place_order(
+                self.create_order(i, OrderTypeEnum.LIMIT, BidAskEnum.BID, qty, 99)
+            )
         self.assertEqual(self.order_book.bid_orders.get_best_order().quantity, 10)
 
     def test_place_multiple_bid_orders_at_different_price(self):
-        bid_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-        bid_order_2 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=98.0,
-            quantity=10,
-            client="ClientA",
-        )
-        bid_order_3 = Order(
-            order_id=3,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=100.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(bid_order_1)
-        self.order_book.place_order(bid_order_2)
-        self.order_book.place_order(bid_order_3)
-
-        self.assertEqual(self.order_book.best_bid_price, 100.0)
+        prices = [99, 98, 100]
+        for i, price in enumerate(prices, start=1):
+            self.order_book.place_order(
+                self.create_order(i, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, price)
+            )
+        self.assertEqual(self.order_book.get_best_bid_price(), 100)
 
     def test_place_multiple_ask_orders_at_same_price(self):
-        ask_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-        ask_order_2 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=30,
-            client="ClientA",
-        )
-        ask_order_3 = Order(
-            order_id=3,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=20,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(ask_order_1)
-        self.order_book.place_order(ask_order_2)
-        self.order_book.place_order(ask_order_3)
-
+        for i, qty in enumerate([10, 30, 20], start=1):
+            self.order_book.place_order(
+                self.create_order(i, OrderTypeEnum.LIMIT, BidAskEnum.ASK, qty, 99)
+            )
         self.assertEqual(self.order_book.ask_orders.get_best_order().quantity, 10)
 
     def test_place_multiple_ask_orders_at_different_price(self):
-        ask_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-        ask_order_2 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=98.0,
-            quantity=10,
-            client="ClientA",
-        )
-        ask_order_3 = Order(
-            order_id=3,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=100.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(ask_order_1)
-        self.order_book.place_order(ask_order_2)
-        self.order_book.place_order(ask_order_3)
-
-        self.assertEqual(self.order_book.best_ask_price, 98.0)
+        prices = [99, 98, 100]
+        for i, price in enumerate(prices, start=1):
+            self.order_book.place_order(
+                self.create_order(i, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, price)
+            )
+        self.assertEqual(self.order_book.get_best_ask_price(), 98)
 
     def test_no_bid_order_execution_while_ask_order_exists(self):
-        ask_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=101.0,
-            quantity=10,
-            client="ClientA",
-        )
-        bid_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=20,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(ask_order_1)
-        self.order_book.place_order(bid_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 99.0)
-        self.assertEqual(self.order_book.best_ask_price, 101.0)
-
+        ask = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 101)
+        bid = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.BID, 20, 99)
+        self.order_book.place_order(ask)
+        self.order_book.place_order(bid)
+        self.assertEqual(self.order_book.get_best_bid_price(), 99)
+        self.assertEqual(self.order_book.get_best_ask_price(), 101)
         self.assertEqual(self.order_book.bid_orders.get_best_order().quantity, 20)
         self.assertEqual(self.order_book.ask_orders.get_best_order().quantity, 10)
 
     def test_no_ask_order_execution_while_bid_order_exists(self):
-        bid_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=20,
-            client="ClientA",
-        )
-
-        ask_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=101.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(bid_order_1)
-        self.order_book.place_order(ask_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 99.0)
-        self.assertEqual(self.order_book.best_ask_price, 101.0)
-
+        bid = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 20, 99)
+        ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 101)
+        self.order_book.place_order(bid)
+        self.order_book.place_order(ask)
+        self.assertEqual(self.order_book.get_best_bid_price(), 99)
+        self.assertEqual(self.order_book.get_best_ask_price(), 101)
         self.assertEqual(self.order_book.bid_orders.get_best_order().quantity, 20)
         self.assertEqual(self.order_book.ask_orders.get_best_order().quantity, 10)
 
     def test_bid_order_execution_complete_clearance_while_ask_order_exists(self):
-        ask_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        bid_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(ask_order_1)
-        self.order_book.place_order(bid_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 0.0)
-        self.assertEqual(self.order_book.best_ask_price, 0.0)
-
-        self.assertEqual(bid_order_1.quantity, 0.0)
-        self.assertEqual(ask_order_1.quantity, 0.0)
-
-        self.assertEqual(self.order_book.bid_orders.get_best_order(), None)
-        self.assertEqual(self.order_book.ask_orders.get_best_order(), None)
+        ask = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 99)
+        bid = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 99)
+        self.order_book.place_order(ask)
+        self.order_book.place_order(bid)
+        self.assertEqual(self.order_book.get_best_bid_price(), 0)
+        self.assertEqual(self.order_book.get_best_ask_price(), 0)
+        self.assertEqual(bid.quantity, 0)
+        self.assertEqual(ask.quantity, 0)
+        self.assertIsNone(self.order_book.bid_orders.get_best_order())
+        self.assertIsNone(self.order_book.ask_orders.get_best_order())
 
     def test_ask_order_execution_complete_clearance_while_bid_order_exists(self):
-        bid_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        ask_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(bid_order_1)
-        self.order_book.place_order(ask_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 0.0)
-        self.assertEqual(self.order_book.best_ask_price, 0.0)
-
-        self.assertEqual(bid_order_1.quantity, 0.0)
-        self.assertEqual(ask_order_1.quantity, 0.0)
-
-        self.assertEqual(self.order_book.bid_orders.get_best_order(), None)
-        self.assertEqual(self.order_book.ask_orders.get_best_order(), None)
+        bid = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 99)
+        ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 99)
+        self.order_book.place_order(bid)
+        self.order_book.place_order(ask)
+        self.assertEqual(self.order_book.get_best_bid_price(), 0)
+        self.assertEqual(self.order_book.get_best_ask_price(), 0)
+        self.assertEqual(bid.quantity, 0)
+        self.assertEqual(ask.quantity, 0)
+        self.assertIsNone(self.order_book.bid_orders.get_best_order())
+        self.assertIsNone(self.order_book.ask_orders.get_best_order())
 
     def test_bigger_quantity_bid_order_partial_execution_while_ask_order_exists(self):
-        ask_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        bid_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=20,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(ask_order_1)
-        self.order_book.place_order(bid_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 99.0)
-        self.assertEqual(self.order_book.best_ask_price, 0.0)
-
-        self.assertEqual(bid_order_1.quantity, 10.0)
-        self.assertEqual(ask_order_1.quantity, 0.0)
-
-        self.assertEqual(self.order_book.bid_orders.get_best_order(), bid_order_1)
-        self.assertEqual(self.order_book.ask_orders.get_best_order(), None)
+        ask = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 99)
+        bid = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.BID, 20, 99)
+        self.order_book.place_order(ask)
+        self.order_book.place_order(bid)
+        self.assertEqual(self.order_book.get_best_bid_price(), 99)
+        self.assertEqual(self.order_book.get_best_ask_price(), 0)
+        self.assertEqual(bid.quantity, 10)
+        self.assertEqual(ask.quantity, 0)
+        self.assertEqual(self.order_book.bid_orders.get_best_order(), bid)
+        self.assertIsNone(self.order_book.ask_orders.get_best_order())
 
     def test_smaller_quantity_bid_order_partial_execution_while_ask_order_exists(self):
-        ask_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=35,
-            client="ClientA",
-        )
-
-        bid_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=20,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(ask_order_1)
-        self.order_book.place_order(bid_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 0.0)
-        self.assertEqual(self.order_book.best_ask_price, 99.0)
-
-        self.assertEqual(bid_order_1.quantity, 0.0)
-        self.assertEqual(ask_order_1.quantity, 15.0)
-
-        self.assertEqual(self.order_book.bid_orders.get_best_order(), None)
-        self.assertEqual(self.order_book.ask_orders.get_best_order(), ask_order_1)
+        ask = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 35, 99)
+        bid = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.BID, 20, 99)
+        self.order_book.place_order(ask)
+        self.order_book.place_order(bid)
+        self.assertEqual(self.order_book.get_best_bid_price(), 0)
+        self.assertEqual(self.order_book.get_best_ask_price(), 99)
+        self.assertEqual(bid.quantity, 0)
+        self.assertEqual(ask.quantity, 15)
+        self.assertIsNone(self.order_book.bid_orders.get_best_order())
+        self.assertEqual(self.order_book.ask_orders.get_best_order(), ask)
 
     def test_bigger_quantity_ask_order_partial_execution_while_bid_order_exists(self):
-        bid_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        ask_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=30,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(bid_order_1)
-        self.order_book.place_order(ask_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 0.0)
-        self.assertEqual(self.order_book.best_ask_price, 99.0)
-
-        self.assertEqual(bid_order_1.quantity, 0.0)
-        self.assertEqual(ask_order_1.quantity, 20.0)
-
-        self.assertEqual(self.order_book.bid_orders.get_best_order(), None)
-        self.assertEqual(self.order_book.ask_orders.get_best_order(), ask_order_1)
+        bid = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 99)
+        ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 30, 99)
+        self.order_book.place_order(bid)
+        self.order_book.place_order(ask)
+        self.assertEqual(self.order_book.get_best_bid_price(), 0)
+        self.assertEqual(self.order_book.get_best_ask_price(), 99)
+        self.assertEqual(bid.quantity, 0)
+        self.assertEqual(ask.quantity, 20)
+        self.assertIsNone(self.order_book.bid_orders.get_best_order())
+        self.assertEqual(self.order_book.ask_orders.get_best_order(), ask)
 
     def test_smaller_quantity_ask_order_partial_execution_while_bid_order_exists(self):
-        bid_order_1 = Order(
-            order_id=1,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.BID,
-            price=100.0,
-            quantity=30,
-            client="ClientA",
-        )
-
-        ask_order_1 = Order(
-            order_id=2,
-            timestamp=datetime.now(),
-            order_type_enum=OrderTypeEnum.LIMIT,
-            bid_ask_enum=BidAskEnum.ASK,
-            price=99.0,
-            quantity=10,
-            client="ClientA",
-        )
-
-        self.order_book.place_order(bid_order_1)
-        self.order_book.place_order(ask_order_1)
-
-        self.assertEqual(self.order_book.best_bid_price, 100.0)
-        self.assertEqual(self.order_book.best_ask_price, 0.0)
-
-        self.assertEqual(bid_order_1.quantity, 20.0)
-        self.assertEqual(ask_order_1.quantity, 0.0)
-
-        self.assertEqual(self.order_book.bid_orders.get_best_order(), bid_order_1)
-        self.assertEqual(self.order_book.ask_orders.get_best_order(), None)
+        bid = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 30, 99)
+        ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 99)
+        self.order_book.place_order(bid)
+        self.order_book.place_order(ask)
+        self.assertEqual(self.order_book.get_best_bid_price(), 99)
+        self.assertEqual(self.order_book.get_best_ask_price(), 0)
+        self.assertEqual(bid.quantity, 20)
+        self.assertEqual(ask.quantity, 0)
+        self.assertEqual(self.order_book.bid_orders.get_best_order(), bid)
+        self.assertIsNone(self.order_book.ask_orders.get_best_order())
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=1)
+    unittest.main()

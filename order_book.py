@@ -59,6 +59,9 @@ class DoublyLinkedList:
     def remove(self, order: Order):
         node = self.order_to_node_map[order.order_id]
 
+        if node is None:
+            return
+
         previous_node = node.prev
         next_node = node.next
 
@@ -113,6 +116,24 @@ class PriceLevelOrdersBase:
 
         return order
 
+    def delete_best_cancelled_orders(self):
+        while self.price_heap:
+            best_price = self._real_price(self.price_heap[0])
+            doubly_linked_list = self.price_to_list_map[best_price]
+
+            if not doubly_linked_list.is_empty():
+                return
+
+            del self.price_to_quantity_map[best_price]
+            del self.price_to_list_map[best_price]
+            heapq.heappop(self.price_heap)
+
+    def delete_order(self, order):
+        order_price = order.price
+        doubly_linked_list = self.price_to_list_map[order_price]
+        doubly_linked_list.remove(order)
+        self.price_to_quantity_map[order_price] -= order.quantity
+
     def get_best_order(self):
         if not self.price_heap:
             return None
@@ -147,6 +168,7 @@ class AskOrders(PriceLevelOrdersBase):
 
 class OrderBook:
     def __init__(self):
+        self.id_to_order_map = dict()
         self.bid_orders = BidOrders()
         self.ask_orders = AskOrders()
 
@@ -164,7 +186,7 @@ class OrderBook:
         order = self.get_best_ask_order()
         return order.price if order else 0
 
-    def get_quantity_at_price(self, price, order_type):
+    def get_quantity_for_price(self, price, order_type):
         """
         depending on the order_type, get the correct heap
         once we have the heap, we need to check if the price exists in the heap
@@ -182,11 +204,20 @@ class OrderBook:
         after each subtraction at the bid/ask heap level, if any of the quantities fall to 0, we need to delete that key value pair from the map
         """
 
+        selected_book = (
+            self.bid_orders if order_type == BidAskEnum.BID else self.ask_orders
+        )
+        return selected_book.get_quantity_for_price(price)
+
     def place_order(self, order: Order) -> None:
-        if order.order_type_enum == OrderTypeEnum.LIMIT:
-            if order.bid_ask_enum == BidAskEnum.BID:
+        self.bid_orders.delete_best_cancelled_orders()
+        self.ask_orders.delete_best_cancelled_orders()
+
+        if order.bid_ask_enum == BidAskEnum.BID:
+            if order.order_type_enum == OrderTypeEnum.LIMIT:
                 if not self.get_best_ask_order():
                     self.bid_orders.add(order)
+                    self.id_to_order_map[order.order_id] = order
                     return
 
                 while (
@@ -203,6 +234,7 @@ class OrderBook:
                         self.ask_orders.pop()
                         order.quantity = 0
                         best_ask_order.quantity = 0
+                        del self.id_to_order_map[best_ask_order.order_id]
                     elif order.quantity < best_ask_order.quantity:
                         # I dont like the fact that I am accessing the price to quantity map here, need a cleverer way to update this map
                         # I probably don't like it because its not happening in the other if elif blocks, its being handled in the pop
@@ -215,13 +247,19 @@ class OrderBook:
                         self.ask_orders.pop()
                         order.quantity -= best_ask_order.quantity
                         best_ask_order.quantity = 0
+                        del self.id_to_order_map[best_ask_order.order_id]
+
+                    self.ask_orders.delete_best_cancelled_orders()
 
                 if order.quantity > 0:
                     self.bid_orders.add(order)
+                    self.id_to_order_map[order.order_id] = order
 
-            else:  # Ask order
+        else:  # Ask order
+            if order.order_type_enum == OrderTypeEnum.LIMIT:
                 if not self.get_best_bid_order():
                     self.ask_orders.add(order)
+                    self.id_to_order_map[order.order_id] = order
                     return
 
                 while (
@@ -238,6 +276,7 @@ class OrderBook:
                         self.bid_orders.pop()
                         order.quantity = 0
                         best_bid_order.quantity = 0
+                        del self.id_to_order_map[best_bid_order.order_id]
                     elif order.quantity < best_bid_order.quantity:
                         self.bid_orders.price_to_quantity_map[
                             best_bid_order.price
@@ -248,12 +287,23 @@ class OrderBook:
                         self.bid_orders.pop()
                         order.quantity -= best_bid_order.quantity
                         best_bid_order.quantity = 0
+                        del self.id_to_order_map[best_bid_order.order_id]
 
-                    best_bid_order = self.get_best_bid_order()
+                    self.bid_orders.delete_best_cancelled_orders()
 
                 if order.quantity > 0:
                     self.ask_orders.add(order)
+                    self.id_to_order_map[order.order_id] = order
 
     def cancel_order(self, order_id: int) -> None:
-        # TODO: implement cancel logic considering empty price levels and heap updates
-        pass
+        if order_id not in self.id_to_order_map:
+            return
+
+        cancelled_order = self.id_to_order_map[order_id]
+        selected_book = (
+            self.bid_orders
+            if cancelled_order.bid_ask_enum == BidAskEnum.BID
+            else self.ask_orders
+        )
+        selected_book.delete_order(cancelled_order)
+        del self.id_to_order_map[order_id]

@@ -1,5 +1,3 @@
-# File: tests/cancellation/test_cancellation_edge_cases.py
-
 from tests.base_test import BaseOrderBookTest, BidAskEnum, OrderTypeEnum
 
 

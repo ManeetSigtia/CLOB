@@ -1,5 +1,3 @@
-# File: tests/scenarios/test_cancellation_scenarios.py
-
 from tests.base_test import BaseOrderBookTest, BidAskEnum, OrderTypeEnum
 
 

@@ -30,7 +30,30 @@ class OrderBook:
         )
         return selected_book.get_quantity_for_price(price)
 
-    def _match_order(
+    def _execute_match(
+        self,
+        incoming_order: Order,
+        best_opposite_order: Order,
+        opposite_book: PriceLevelOrdersBase,
+    ):
+        if incoming_order.quantity == best_opposite_order.quantity:
+            opposite_book.pop()
+            incoming_order.quantity = 0
+            best_opposite_order.quantity = 0
+            del self.id_to_order_map[best_opposite_order.order_id]
+        elif incoming_order.quantity < best_opposite_order.quantity:
+            opposite_book.decrease_order_quantity(
+                best_opposite_order, incoming_order.quantity
+            )
+            incoming_order.quantity = 0
+        else:
+            opposite_book.pop()
+            incoming_order.quantity -= best_opposite_order.quantity
+            best_opposite_order.quantity = 0
+            del self.id_to_order_map[best_opposite_order.order_id]
+        opposite_book.delete_best_cancelled_orders()
+
+    def _match_limit_order(
         self, order: Order, opposite_book: PriceLevelOrdersBase, price_match_condition
     ):
         while order.quantity > 0:
@@ -39,44 +62,46 @@ class OrderBook:
                 order.price, best_opposite_order.price
             ):
                 break
-            if order.quantity == best_opposite_order.quantity:
-                opposite_book.pop()
-                order.quantity = 0
-                best_opposite_order.quantity = 0
-                del self.id_to_order_map[best_opposite_order.order_id]
-            elif order.quantity < best_opposite_order.quantity:
-                opposite_book.decrease_order_quantity(
-                    best_opposite_order, order.quantity
-                )
-                order.quantity = 0
-            else:
-                opposite_book.pop()
-                order.quantity -= best_opposite_order.quantity
-                best_opposite_order.quantity = 0
-                del self.id_to_order_map[best_opposite_order.order_id]
-            opposite_book.delete_best_cancelled_orders()
+
+            self._execute_match(order, best_opposite_order, opposite_book)
+
+    def _match_market_order(self, order: Order, opposite_book: PriceLevelOrdersBase):
+        while order.quantity > 0:
+            best_opposite_order = opposite_book.get_best_order()
+            if best_opposite_order is None:
+                break
+
+            self._execute_match(order, best_opposite_order, opposite_book)
 
     def place_order(self, order: Order) -> None:
         self.bid_orders.delete_best_cancelled_orders()
         self.ask_orders.delete_best_cancelled_orders()
-        if order.order_type_enum != OrderTypeEnum.LIMIT:
-            return
-        if order.bid_ask_enum == BidAskEnum.BID:
-            home_book = self.bid_orders
-            opposite_book = self.ask_orders
-            price_match_condition = (
-                lambda order_price, book_price: order_price >= book_price
-            )
-        else:
-            home_book = self.ask_orders
-            opposite_book = self.bid_orders
-            price_match_condition = (
-                lambda order_price, book_price: order_price <= book_price
-            )
-        self._match_order(order, opposite_book, price_match_condition)
-        if order.quantity > 0:
-            home_book.add(order)
-            self.id_to_order_map[order.order_id] = order
+
+        if order.order_type_enum == OrderTypeEnum.LIMIT:
+            if order.bid_ask_enum == BidAskEnum.BID:
+                home_book, opposite_book = self.bid_orders, self.ask_orders
+                price_match_condition = (
+                    lambda order_price, book_price: order_price >= book_price
+                )
+            else:
+                home_book, opposite_book = self.ask_orders, self.bid_orders
+                price_match_condition = (
+                    lambda order_price, book_price: order_price <= book_price
+                )
+
+            self._match_limit_order(order, opposite_book, price_match_condition)
+
+            if order.quantity > 0:
+                home_book.add(order)
+                self.id_to_order_map[order.order_id] = order
+
+        elif order.order_type_enum == OrderTypeEnum.MARKET:
+            if order.bid_ask_enum == BidAskEnum.BID:
+                opposite_book = self.ask_orders
+            else:
+                opposite_book = self.bid_orders
+
+            self._match_market_order(order, opposite_book)
 
     def cancel_order(self, order_id: int) -> None:
         if order_id not in self.id_to_order_map:

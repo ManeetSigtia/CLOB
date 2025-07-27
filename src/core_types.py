@@ -1,5 +1,3 @@
-# File: core_types.py
-
 import datetime
 from dataclasses import dataclass
 from enum import StrEnum, auto

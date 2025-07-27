@@ -1,5 +1,3 @@
-# File: order_book.py
-
 from .core_types import Order, OrderTypeEnum, BidAskEnum
 from .data_structures import BidOrders, AskOrders, PriceLevelOrdersBase
 

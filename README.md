@@ -8,6 +8,24 @@ The project's goal was to architect a solution using efficient data structures t
 
 ---
 
+## Visual Demonstration
+
+The animation below showcases the data structures in action, visualizing how orders are placed, cancelled, and how a market order sweeps the book.
+
+![Order Book Animation](assets/order_book_visualised.gif)
+
+---
+
+## Table of Contents
+
+- [Core Architecture & Design Decisions](#core-architecture--design-decisions)
+- [Key Optimization: True O(1) Order Cancellation](#key-optimization-true-o1-order-cancellation)
+- [Design Challenges & Justifications](#design-challenges--justifications)
+- [Testing Strategy & CI](#testing-strategy--ci)
+- [Time Complexity Analysis](#time-complexity-analysis)
+
+---
+
 ## Core Architecture & Design Decisions
 
 The performance of an order book is dictated by its ability to perform three actions quickly: **add** a new order, **cancel** an existing order, and **match/execute** incoming orders against resting ones. This design uses a hybrid data structure to optimize for these operations.
@@ -46,11 +64,11 @@ Stale, empty price levels are purged from the top of the heap by the `delete_bes
 
 Any engineering design involves trade-offs. Here are some choices made in this project and their rationale.
 
-| Challenge & Question | Justification |
-| :--- | :--- |
-| **High Memory Footprint?**<br/>"Your design uses multiple dictionaries and custom objects. Isn't this memory-intensive?" | This is a deliberate **space-for-time tradeoff**. In high-performance systems, latency is paramount. The memory overhead of a few extra pointers per order is a small price to pay to reduce key operations from a slow search $(O(N)$ or $O(\log N))$ to constant time $(O(1))$. |
-| **Custom `DoublyLinkedList` vs. `collections.deque`?**<br/>"Why write your own list instead of using Python's highly optimized `deque`?" | The key reason is **$O(1)$ internal node removal**. `collections.deque` is fast for additions/removals at the *ends*, but removing an element from the *middle* is an $O(k)$ operation. My custom list, paired with a dictionary mapping IDs to nodes, allows for the removal of *any* order in $O(1)$, which is essential for the fast cancellation guarantee. |
-| **Using `float` for Price?**<br/>"Floating-point math is risky for financial applications. Why not use `Decimal`?" | This was a conscious simplification to focus on the **algorithmic complexity and data structure performance**. In a production system, using `Decimal` or scaled integers is non-negotiable. For this project, `float` was sufficient to demonstrate the matching engine's logic. The architecture is decoupled enough that swapping the numeric type would be a straightforward change. |
+| Challenge & Question                                                                                                                     | Justification                                                                                                                                                                                                                                                                                                                                                                            |
+| :--------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **High Memory Footprint?**<br/>"Your design uses multiple dictionaries and custom objects. Isn't this memory-intensive?"                 | This is a deliberate **space-for-time tradeoff**. In high-performance systems, latency is paramount. The memory overhead of a few extra pointers per order is a small price to pay to reduce key operations from a slow search $(O(N)$ or $O(\log N))$ to constant time $(O(1))$.                                                                                                        |
+| **Custom `DoublyLinkedList` vs. `collections.deque`?**<br/>"Why write your own list instead of using Python's highly optimized `deque`?" | The key reason is **$O(1)$ internal node removal**. `collections.deque` is fast for additions/removals at the _ends_, but removing an element from the _middle_ is an $O(k)$ operation. My custom list, paired with a dictionary mapping IDs to nodes, allows for the removal of _any_ order in $O(1)$, which is essential for the fast cancellation guarantee.                          |
+| **Using `float` for Price?**<br/>"Floating-point math is risky for financial applications. Why not use `Decimal`?"                       | This was a conscious simplification to focus on the **algorithmic complexity and data structure performance**. In a production system, using `Decimal` or scaled integers is non-negotiable. For this project, `float` was sufficient to demonstrate the matching engine's logic. The architecture is decoupled enough that swapping the numeric type would be a straightforward change. |
 
 ---
 
@@ -59,6 +77,7 @@ Any engineering design involves trade-offs. Here are some choices made in this p
 The project's correctness is validated by a comprehensive suite of **59 tests** and is maintained at **99.46% code coverage**. This rigor is enforced automatically through a **Continuous Integration (CI)** pipeline configured with GitHub Actions.
 
 On every push or pull request, the CI pipeline automatically:
+
 1.  Sets up the Python environment.
 2.  Installs all dependencies.
 3.  Runs the entire test suite using `coverage`.
@@ -66,10 +85,10 @@ On every push or pull request, the CI pipeline automatically:
 
 This automated process ensures that all functionality remains working as expected and that no new code is added without corresponding tests. The test suite covers:
 
-* **Placement & Priority**: Verifies order placement, price priority, and FIFO rules.
-* **Order Matching**: Tests full/partial fills and sweeps for both market and limit orders.
-* **Cancellation**: Validates simple cancels and edge cases like cancelling from the middle of a queue.
-* **Complex Scenarios**: Ensures robustness by testing sequences of operations like cancels followed by matches.
+- **Placement & Priority**: Verifies order placement, price priority, and FIFO rules.
+- **Order Matching**: Tests full/partial fills and sweeps for both market and limit orders.
+- **Cancellation**: Validates simple cancels and edge cases like cancelling from the middle of a queue.
+- **Complex Scenarios**: Ensures robustness by testing sequences of operations like cancels followed by matches.
 
 ---
 
@@ -77,9 +96,9 @@ This automated process ensures that all functionality remains working as expecte
 
 Let $P$ be the number of unique price levels and $M$ be the number of orders/levels matched.
 
-| Operation | Time Complexity | Justification |
-| :--- | :--- | :--- |
-| **Place Limit Order (No Match)** | $O(\log P)$ | Dominated by `heapq.heappush` if it's a new price level. If the price level already exists, it is $O(1)$. |
-| **Place Order (With Match)** | $O(M \cdot \log P)$ | The matching loop iterates $M$ times. Each time a price level is fully depleted, `heapq.heappop` $(O(\log P))$ is called. |
-| **Cancel Order** | $O(1)$ | **Key Strength.** Achieved via direct dictionary lookups and lazy deletion from the heap. |
-| **Get Best Bid/Ask Price/Order** | $O(1)$ | Peeking at the top of the heap and the head of the linked list are constant-time operations. |
+| Operation                        | Time Complexity     | Justification                                                                                                             |
+| :------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------ |
+| **Place Limit Order (No Match)** | $O(\log P)$         | Dominated by `heapq.heappush` if it's a new price level. If the price level already exists, it is $O(1)$.                 |
+| **Place Order (With Match)**     | $O(M \cdot \log P)$ | The matching loop iterates $M$ times. Each time a price level is fully depleted, `heapq.heappop` $(O(\log P))$ is called. |
+| **Cancel Order**                 | $O(1)$              | **Key Strength.** Achieved via direct dictionary lookups and lazy deletion from the heap.                                 |
+| **Get Best Bid/Ask Price/Order** | $O(1)$              | Peeking at the top of the heap and the head of the linked list are constant-time operations.                              |

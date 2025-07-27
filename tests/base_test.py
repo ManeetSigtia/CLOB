@@ -1,5 +1,3 @@
-# File: tests/base_test.py
-
 import unittest
 from datetime import datetime
 from src.core_types import Order, OrderTypeEnum, BidAskEnum

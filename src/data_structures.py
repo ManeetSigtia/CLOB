@@ -1,5 +1,3 @@
-# File: data_structures.py
-
 import heapq
 from .core_types import Order
 

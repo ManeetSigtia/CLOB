@@ -16,12 +16,10 @@ class TestEdgeCaseCancellation(BaseOrderBookTest):
         """Tests cancelling an order that has already been fully filled."""
         bid = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 100)
         ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 100)
-        dummy_ask = self.create_order(3, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 100)
         self.order_book.place_order(bid)
         self.order_book.place_order(ask)
         self.assertIsNone(self.order_book.bid_orders.get_best_order())
         self.order_book.cancel_order(1)
-        self.order_book.place_order(dummy_ask)
         self.assertIsNone(self.order_book.bid_orders.get_best_order())
 
     def test_cancel_from_middle_of_queue(self):

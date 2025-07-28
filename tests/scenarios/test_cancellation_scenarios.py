@@ -2,6 +2,39 @@ from tests.base_test import BaseOrderBookTest, BidAskEnum, OrderTypeEnum
 
 
 class TestCancellationScenarios(BaseOrderBookTest):
+    """Tests cancelling the best bid after another bid has been placed."""
+
+    def test_best_bid_price_after_cancelling_best_bid_order(self):
+        bid_to_cancel = self.create_order(
+            1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 100
+        )
+        remaining_bid = self.create_order(
+            2, OrderTypeEnum.LIMIT, BidAskEnum.BID, 20, 99
+        )
+        self.order_book.place_order(bid_to_cancel)
+        self.order_book.place_order(remaining_bid)
+        self.assertEqual(self.order_book.get_best_bid_price(), 100)
+        self.order_book.cancel_order(1)
+        self.assertEqual(remaining_bid, self.order_book.get_best_bid_order())
+        self.assertEqual(self.order_book.get_best_bid_price(), 99)
+        self.assertEqual(self.order_book.get_best_bid_order().quantity, 20)
+
+    def test_best_ask_price_after_cancelling_best_ask_order(self):
+        """Tests cancelling the best ask after another ask has been placed."""
+        ask_to_cancel = self.create_order(
+            1, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 100
+        )
+        remaining_ask = self.create_order(
+            2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 20, 101
+        )
+        self.order_book.place_order(ask_to_cancel)
+        self.order_book.place_order(remaining_ask)
+        self.assertEqual(self.order_book.get_best_ask_price(), 100)
+        self.order_book.cancel_order(1)
+        self.assertEqual(remaining_ask, self.order_book.get_best_ask_order())
+        self.assertEqual(self.order_book.get_best_ask_price(), 101)
+        self.assertEqual(self.order_book.get_best_ask_order().quantity, 20)
+
     def test_cancel_unmatched_order_after_opposite_side_is_placed(self):
         """Tests cancelling a bid after a non-matching ask has been placed."""
         bid_to_cancel = self.create_order(
@@ -15,8 +48,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         self.assertEqual(self.order_book.get_best_bid_price(), 100)
         self.assertEqual(self.order_book.get_best_ask_price(), 101)
         self.order_book.cancel_order(1)
-        dummy_ask = self.create_order(3, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 5, 999)
-        self.order_book.place_order(dummy_ask)
         self.assertIsNone(self.order_book.get_best_bid_order())
         self.assertEqual(self.order_book.get_best_ask_price(), 101)
         self.assertEqual(self.order_book.get_quantity_for_price(100, BidAskEnum.BID), 0)
@@ -37,8 +68,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         self.assertEqual(self.order_book.get_best_ask_price(), 101)
         self.assertEqual(self.order_book.get_best_bid_price(), 100)
         self.order_book.cancel_order(1)
-        dummy_bid = self.create_order(3, OrderTypeEnum.LIMIT, BidAskEnum.BID, 5, 1)
-        self.order_book.place_order(dummy_bid)
         self.assertIsNone(self.order_book.get_best_ask_order())
         self.assertEqual(self.order_book.get_best_bid_price(), 100)
         self.assertEqual(self.order_book.get_quantity_for_price(101, BidAskEnum.ASK), 0)
@@ -51,8 +80,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         bid1 = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 100)
         self.order_book.place_order(bid1)
         self.order_book.cancel_order(1)
-        dummy_ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 5, 999)
-        self.order_book.place_order(dummy_ask)
         self.assertIsNone(self.order_book.get_best_bid_order())
         bid2 = self.create_order(3, OrderTypeEnum.LIMIT, BidAskEnum.BID, 20, 100)
         ask_match = self.create_order(4, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 15, 100)
@@ -67,8 +94,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         ask1 = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 100)
         self.order_book.place_order(ask1)
         self.order_book.cancel_order(1)
-        dummy_bid = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.BID, 5, 1)
-        self.order_book.place_order(dummy_bid)
         self.assertIsNone(self.order_book.get_best_ask_order())
         ask2 = self.create_order(3, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 20, 100)
         bid_match = self.create_order(4, OrderTypeEnum.LIMIT, BidAskEnum.BID, 15, 100)
@@ -83,8 +108,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         bid1 = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.BID, 10, 100)
         self.order_book.place_order(bid1)
         self.order_book.cancel_order(1)
-        dummy_ask = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 5, 999)
-        self.order_book.place_order(dummy_ask)
         bid2 = self.create_order(3, OrderTypeEnum.LIMIT, BidAskEnum.BID, 20, 100)
         bid3 = self.create_order(4, OrderTypeEnum.LIMIT, BidAskEnum.BID, 30, 99)
         self.order_book.place_order(bid2)
@@ -100,8 +123,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         ask1 = self.create_order(1, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 10, 100)
         self.order_book.place_order(ask1)
         self.order_book.cancel_order(1)
-        dummy_bid = self.create_order(2, OrderTypeEnum.LIMIT, BidAskEnum.BID, 5, 1)
-        self.order_book.place_order(dummy_bid)
         ask2 = self.create_order(3, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 20, 100)
         ask3 = self.create_order(4, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 30, 101)
         self.order_book.place_order(ask2)
@@ -128,8 +149,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         self.order_book.cancel_order(3)
         self.order_book.cancel_order(4)
         self.order_book.cancel_order(5)
-        dummy_ask = self.create_order(7, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 5, 999)
-        self.order_book.place_order(dummy_ask)
         self.assertEqual(self.order_book.get_quantity_for_price(101, BidAskEnum.BID), 0)
         self.assertEqual(self.order_book.get_best_bid_price(), 102)
         ask_small = self.create_order(8, OrderTypeEnum.LIMIT, BidAskEnum.ASK, 15, 102)
@@ -177,8 +196,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         self.order_book.cancel_order(3)
         self.order_book.cancel_order(4)
         self.order_book.cancel_order(5)
-        dummy_bid = self.create_order(7, OrderTypeEnum.LIMIT, BidAskEnum.BID, 5, 1)
-        self.order_book.place_order(dummy_bid)
         self.assertEqual(self.order_book.get_quantity_for_price(101, BidAskEnum.ASK), 0)
         self.assertEqual(self.order_book.get_best_ask_price(), 100)
         bid_small = self.create_order(8, OrderTypeEnum.LIMIT, BidAskEnum.BID, 15, 100)
@@ -205,8 +222,6 @@ class TestCancellationScenarios(BaseOrderBookTest):
         self.order_book.cancel_order(3)
         self.order_book.cancel_order(4)
         self.order_book.cancel_order(5)
-        dummy_bid = self.create_order(7, OrderTypeEnum.LIMIT, BidAskEnum.BID, 5, 1)
-        self.order_book.place_order(dummy_bid)
         bid_sweep = self.create_order(8, OrderTypeEnum.LIMIT, BidAskEnum.BID, 50, 102)
         self.order_book.place_order(bid_sweep)
         self.assertIsNone(self.order_book.get_best_ask_order())

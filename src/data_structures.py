@@ -100,6 +100,7 @@ class PriceLevelOrdersBase:
             self.price_to_quantity_map[order_price] -= order.quantity
 
     def get_best_order(self) -> Order | None:
+        self.delete_best_cancelled_orders()
         if not self.price_heap:
             return None
         best_price = self._real_price(self.price_heap[0])

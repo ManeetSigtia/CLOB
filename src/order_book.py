@@ -49,7 +49,6 @@ class OrderBook:
             incoming_order.quantity -= best_opposite_order.quantity
             best_opposite_order.quantity = 0
             del self.id_to_order_map[best_opposite_order.order_id]
-        opposite_book.delete_best_cancelled_orders()
 
     def _match_limit_order(
         self, order: Order, opposite_book: PriceLevelOrdersBase, price_match_condition
@@ -72,9 +71,6 @@ class OrderBook:
             self._execute_match(order, best_opposite_order, opposite_book)
 
     def place_order(self, order: Order) -> None:
-        self.bid_orders.delete_best_cancelled_orders()
-        self.ask_orders.delete_best_cancelled_orders()
-
         if order.order_type_enum == OrderTypeEnum.LIMIT:
             if order.bid_ask_enum == BidAskEnum.BID:
                 home_book, opposite_book = self.bid_orders, self.ask_orders

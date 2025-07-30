@@ -69,7 +69,7 @@ Any engineering design involves trade-offs. Here are some key choices made in th
 
 ## Testing Strategy & CI
 
-The project's correctness is validated by a comprehensive suite of **59 tests** and is maintained at **99.46% code coverage**. This rigor is enforced automatically through a **Continuous Integration (CI)** pipeline configured with GitHub Actions.
+The project's correctness is validated by a comprehensive suite of **61 tests** and is maintained at **99.46% code coverage**. This rigor is enforced automatically through a **Continuous Integration (CI)** pipeline configured with GitHub Actions.
 
 On every push or pull request, the CI pipeline automatically:
 

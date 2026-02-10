@@ -42,7 +42,7 @@ In real-world markets, particularly with algorithmic trading, the **order-to-tra
 This implementation achieves a guaranteed $O(1)$ cancellation time through a combination of fast lookups and "lazy" heap maintenance.
 
 1.  **`id_to_order_map`**: A global dictionary mapping an `order_id` to its `Order` object in $O(1)$.
-2.  **`order_to_node_map`**: A dictionary within each `DoublyLinkedList` mapping an `order_id` to its specific `Node` in the list, also in $O(1)$.
+2.  **`order_id_to_node_map`**: A dictionary within each `DoublyLinkedList` mapping an `order_id` to its specific `Node` in the list, also in $O(1)$.
 
 When an order is cancelled, we use these maps to find and remove the node from the linked list in $O(1)$. **Crucially, the heap is not modified at this time.** The price level, now possibly empty, remains in the heap as a "stale" entry. This guarantees the cancellation itself is always constant-time.
 

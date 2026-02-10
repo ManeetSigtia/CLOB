@@ -1,9 +1,15 @@
+from __future__ import annotations
 import heapq
 from .core_types import Order
 
 
 class Node:
-    def __init__(self, prev=None, next_node=None, val=None):
+    def __init__(
+        self,
+        prev: Node | None = None,
+        next_node: Node | None = None,
+        val: Order | None = None,
+    ):
         self.prev = prev
         self.next_node = next_node
         self.val = val
@@ -11,44 +17,44 @@ class Node:
 
 class DoublyLinkedList:
     def __init__(self):
-        self.order_to_node_map = dict()
-        self.head = Node()
-        self.tail = Node()
+        self.order_id_to_node_map: dict[int, Node] = dict()
+        self.head: Node = Node()
+        self.tail: Node = Node()
         self.head.next_node = self.tail
         self.tail.prev = self.head
 
-    def push(self, order: Order):
+    def push(self, order: Order) -> None:
         new_node = Node(val=order)
         new_node.prev = self.tail.prev
         new_node.next_node = self.tail
         self.tail.prev.next_node = new_node
         self.tail.prev = new_node
-        self.order_to_node_map[order.order_id] = new_node
+        self.order_id_to_node_map[order.order_id] = new_node
 
-    def remove(self, order: Order):
-        node = self.order_to_node_map.get(order.order_id)
+    def remove(self, order: Order) -> None:
+        node = self.order_id_to_node_map.get(order.order_id)
         if node is None:
             return
         previous_node = node.prev
         next_node = node.next_node
         previous_node.next_node = next_node
         next_node.prev = previous_node
-        del self.order_to_node_map[order.order_id]
+        del self.order_id_to_node_map[order.order_id]
 
-    def peek(self):
+    def peek(self) -> Order | None:
         return self.head.next_node.val
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
         return self.head.next_node == self.tail
 
 
 class PriceLevelOrdersBase:
     def __init__(self):
-        self.price_to_quantity_map = dict()
-        self.price_to_list_map = dict()
-        self.price_heap = []
+        self.price_to_quantity_map: dict[float, float] = dict()
+        self.price_to_list_map: dict[float, DoublyLinkedList] = dict()
+        self.price_heap: list[float] = []
 
-    def add(self, order: Order):
+    def add(self, order: Order) -> None:
         price = order.price
         heap_price = self._heap_key(price)
         if price in self.price_to_list_map:
@@ -62,7 +68,7 @@ class PriceLevelOrdersBase:
             self.price_to_list_map[price] = doubly_linked_list
             heapq.heappush(self.price_heap, heap_price)
 
-    def pop(self):
+    def pop(self) -> Order | None:
         if not self.price_heap:
             return None
         best_price = self._real_price(self.price_heap[0])
@@ -78,11 +84,11 @@ class PriceLevelOrdersBase:
 
     def decrease_order_quantity(
         self, order_to_decrease: Order, incoming_order_quantity: float
-    ):
+    ) -> None:
         self.price_to_quantity_map[order_to_decrease.price] -= incoming_order_quantity
         order_to_decrease.quantity -= incoming_order_quantity
 
-    def delete_best_cancelled_orders(self):
+    def delete_best_cancelled_orders(self) -> None:
         while self.price_heap:
             best_price = self._real_price(self.price_heap[0])
             doubly_linked_list = self.price_to_list_map[best_price]
@@ -92,7 +98,7 @@ class PriceLevelOrdersBase:
             del self.price_to_list_map[best_price]
             heapq.heappop(self.price_heap)
 
-    def delete_order(self, order: Order):
+    def delete_order(self, order: Order) -> None:
         order_price = order.price
         if order_price in self.price_to_list_map:
             doubly_linked_list = self.price_to_list_map[order_price]
@@ -109,24 +115,24 @@ class PriceLevelOrdersBase:
     def get_quantity_for_price(self, price: float) -> float:
         return self.price_to_quantity_map.get(price, 0)
 
-    def _heap_key(self, price: float):
+    def _heap_key(self, price: float) -> float:
         raise NotImplementedError
 
-    def _real_price(self, heap_key):
+    def _real_price(self, heap_key) -> float:
         raise NotImplementedError
 
 
 class BidOrders(PriceLevelOrdersBase):
-    def _heap_key(self, price: float):
+    def _heap_key(self, price: float) -> float:
         return -price
 
-    def _real_price(self, heap_key):
+    def _real_price(self, heap_key) -> float:
         return -heap_key
 
 
 class AskOrders(PriceLevelOrdersBase):
-    def _heap_key(self, price: float):
+    def _heap_key(self, price: float) -> float:
         return price
 
-    def _real_price(self, heap_key):
+    def _real_price(self, heap_key) -> float:
         return heap_key

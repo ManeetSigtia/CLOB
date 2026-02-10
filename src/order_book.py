@@ -1,12 +1,13 @@
 from .core_types import Order, OrderTypeEnum, BidAskEnum
 from .data_structures import BidOrders, AskOrders, PriceLevelOrdersBase
+from typing import Callable
 
 
 class OrderBook:
     def __init__(self):
-        self.id_to_order_map = dict()
-        self.bid_orders = BidOrders()
-        self.ask_orders = AskOrders()
+        self.id_to_order_map: dict[int, Order] = dict()
+        self.bid_orders: BidOrders = BidOrders()
+        self.ask_orders: AskOrders = AskOrders()
 
     def get_best_bid_order(self) -> Order | None:
         return self.bid_orders.get_best_order()
@@ -33,7 +34,7 @@ class OrderBook:
         incoming_order: Order,
         best_opposite_order: Order,
         opposite_book: PriceLevelOrdersBase,
-    ):
+    ) -> None:
         if incoming_order.quantity == best_opposite_order.quantity:
             opposite_book.pop()
             incoming_order.quantity = 0
@@ -51,8 +52,11 @@ class OrderBook:
             del self.id_to_order_map[best_opposite_order.order_id]
 
     def _match_limit_order(
-        self, order: Order, opposite_book: PriceLevelOrdersBase, price_match_condition
-    ):
+        self,
+        order: Order,
+        opposite_book: PriceLevelOrdersBase,
+        price_match_condition: Callable[[float, float], bool],
+    ) -> None:
         while order.quantity > 0:
             best_opposite_order = opposite_book.get_best_order()
             if best_opposite_order is None or not price_match_condition(
@@ -62,7 +66,9 @@ class OrderBook:
 
             self._execute_match(order, best_opposite_order, opposite_book)
 
-    def _match_market_order(self, order: Order, opposite_book: PriceLevelOrdersBase):
+    def _match_market_order(
+        self, order: Order, opposite_book: PriceLevelOrdersBase
+    ) -> None:
         while order.quantity > 0:
             best_opposite_order = opposite_book.get_best_order()
             if best_opposite_order is None:

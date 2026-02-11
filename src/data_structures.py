@@ -105,18 +105,14 @@ class PriceLevelOrdersBase:
     def _delete_best_cancelled_orders(self) -> None:
         while self.price_heap:
             best_price = self._real_price(self.price_heap[0])
+            doubly_linked_list = self.price_to_list_map.get(best_price)
 
-            if best_price not in self.price_to_list_map:
+            if doubly_linked_list is None or doubly_linked_list.is_empty():
+                self.price_to_list_map.pop(best_price, None)
+                self.price_to_quantity_map.pop(best_price, None)
                 heapq.heappop(self.price_heap)
-                continue
-
-            doubly_linked_list = self.price_to_list_map[best_price]
-            if not doubly_linked_list.is_empty():
+            else:
                 return
-
-            del self.price_to_quantity_map[best_price]
-            del self.price_to_list_map[best_price]
-            heapq.heappop(self.price_heap)
 
     def _heap_key(self, price: float) -> float:
         raise NotImplementedError

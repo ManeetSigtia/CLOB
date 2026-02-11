@@ -45,7 +45,7 @@ class OrderBook:
             else self.ask_orders
         )
         selected_book.delete_order(cancelled_order)
-        del self.id_to_order_map[order_id]
+        self.id_to_order_map.pop(order_id, None)
 
     def get_best_bid_order(self) -> Order | None:
         return self.bid_orders.get_best_order()
@@ -102,7 +102,7 @@ class OrderBook:
             opposite_book.delete_order(best_opposite_order)
             incoming_order.quantity = 0
             best_opposite_order.quantity = 0
-            del self.id_to_order_map[best_opposite_order.order_id]
+            self.id_to_order_map.pop(best_opposite_order.order_id, None)
         elif incoming_order.quantity < best_opposite_order.quantity:
             opposite_book.decrease_order_quantity(
                 best_opposite_order, incoming_order.quantity
@@ -112,4 +112,4 @@ class OrderBook:
             opposite_book.delete_order(best_opposite_order)
             incoming_order.quantity -= best_opposite_order.quantity
             best_opposite_order.quantity = 0
-            del self.id_to_order_map[best_opposite_order.order_id]
+            self.id_to_order_map.pop(best_opposite_order.order_id, None)

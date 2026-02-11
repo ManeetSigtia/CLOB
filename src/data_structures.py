@@ -39,7 +39,7 @@ class DoublyLinkedList:
         next_node = node.next_node
         previous_node.next_node = next_node
         next_node.prev = previous_node
-        del self.order_id_to_node_map[order.order_id]
+        self.order_id_to_node_map.pop(order.order_id, None)
 
     def peek(self) -> Order | None:
         return self.head.next_node.val
@@ -80,8 +80,8 @@ class PriceLevelOrdersBase:
         self.price_to_quantity_map[order_price] -= order.quantity
 
         if doubly_linked_list.is_empty():
-            del self.price_to_quantity_map[order_price]
-            del self.price_to_list_map[order_price]
+            self.price_to_quantity_map.pop(order_price, None)
+            self.price_to_list_map.pop(order_price, None)
 
     # called when incoming order quantity < resting order quantity, so no change to heap
     def decrease_order_quantity(

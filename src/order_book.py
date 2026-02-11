@@ -98,18 +98,12 @@ class OrderBook:
         best_opposite_order: Order,
         opposite_book: PriceLevelOrdersBase,
     ) -> None:
-        if incoming_order.quantity == best_opposite_order.quantity:
+        trade_quantity = min(incoming_order.quantity, best_opposite_order.quantity)
+        if incoming_order.quantity >= best_opposite_order.quantity:
             opposite_book.delete_order(best_opposite_order)
-            incoming_order.quantity = 0
+            incoming_order.quantity -= trade_quantity
             best_opposite_order.quantity = 0
             self.id_to_order_map.pop(best_opposite_order.order_id, None)
-        elif incoming_order.quantity < best_opposite_order.quantity:
-            opposite_book.decrease_order_quantity(
-                best_opposite_order, incoming_order.quantity
-            )
-            incoming_order.quantity = 0
         else:
-            opposite_book.delete_order(best_opposite_order)
-            incoming_order.quantity -= best_opposite_order.quantity
-            best_opposite_order.quantity = 0
-            self.id_to_order_map.pop(best_opposite_order.order_id, None)
+            opposite_book.decrease_order_quantity(best_opposite_order, trade_quantity)
+            incoming_order.quantity = 0

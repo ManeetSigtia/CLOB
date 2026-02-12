@@ -88,11 +88,12 @@ This automated process ensures that all functionality remains working as expecte
 
 ## Time Complexity Analysis
 
-Let $P$ be the number of unique price levels and $M$ be the number of orders/levels matched.
+Let $P$ be the number of unique price levels and $M$ be the number of orders matched.
 
-| Operation                        | Time Complexity           | Justification                                                                                                                                                                                                                       |
-| :------------------------------- | :------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Place Limit Order (No Match)** | $O(\log P)$               | Dominated by `heapq.heappush` if it's a new price level. If the price level already exists, it is $O(1)$.                                                                                                                           |
-| **Place Order (With Match)**     | $O(M \cdot \log P)$       | The matching loop iterates $M$ times. Each time a price level is fully depleted, a `heappop` $(O(\log P))$ is called.                                                                                                               |
-| **Cancel Order**                 | $O(1)$                    | **Key Strength.** Achieved via direct dictionary lookups and lazy deletion from the heap.                                                                                                                                           |
-| **Get Best Bid/Ask Price/Order** | **Amortized** $O(\log P)$ | **Correct by Design.** While often $O(1)$, it includes the potential cost of cleaning up `k` stale price levels from the top of the heap, making its performance amortized. This is the trade-off for a guaranteed $O(1)$ `cancel`. |
+| Operation | Time Complexity | Justification |
+| :--- | :--- | :--- |
+| **Place Limit Order (No Match)** | $O(\log P)$ | Dominated by `heapq.heappush` if it is a new price level. If the price level already exists, the dictionary lookup and DLL push are $O(1)$. |
+| **Place Order (With Match)** | **Amortized** $O(M + \log P)$ | Surgical removals from the DLL and Map are $O(1)$ per match. The $O(\log P)$ "tax" is only paid when a price level is fully exhausted and must be popped from the heap. |
+| **Cancel Order** | $O(1)$ | **Key Strength.** Orders are surgically removed from the DLL and Map via $O(1)$ dictionary lookups. The heap is left "dirty" for lazy cleanup later. |
+| **Get Best Bid/Ask Price/Order** | **Amortized** $O(\log P)$ | Includes the potential cost of cleaning up $k$ "ghost" prices from the top of the heap. In a clean state, this is a simple $O(1)$ peek at the heap top. |
+| **Get Volume at Price** | $O(1)$ | Achieved via a direct lookup in the `price_to_quantity_map`. This avoids the $O(N)$ cost of traversing the linked list to sum order quantities. |

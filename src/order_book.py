@@ -61,9 +61,9 @@ class OrderBook:
         order = self.get_best_ask_order()
         return order.price if order else None
 
-    def get_quantity_for_price(self, price: float, order_type: BidAskEnum) -> float:
+    def get_quantity_for_price(self, price: float, bid_ask_type: BidAskEnum) -> float:
         selected_book = (
-            self.bid_orders if order_type == BidAskEnum.BID else self.ask_orders
+            self.bid_orders if bid_ask_type == BidAskEnum.BID else self.ask_orders
         )
         return selected_book.get_quantity_for_price(price)
 
